@@ -1,0 +1,66 @@
+---
+- hosts: windows
+  vars:
+    download_directory: 'c:\downloads'
+    cmake_installer_filename: cmake-3.5.2-win32-x86.msi
+    git_installer_filename: Git-2.8.2-64-bit.exe
+  tasks:
+  # Seems to make sure this directory exists before I download anything
+  - name: Create download directory
+    win_file:
+      path: '{{ download_directory }}'
+      state: directory
+
+  # TODO: Figure our how to specify dictionary of items...
+  - name: Get cmake installer
+    win_get_url: 
+      url: 'https://cmake.org/files/v3.5/{{ cmake_installer_filename }}'
+      dest: '{{ download_directory }}\{{ cmake_installer_filename }}'
+      force: no
+
+  - name: Get git installer
+    win_get_url: 
+      url: 'https://github.com/git-for-windows/git/releases/download/v2.8.2.windows.1/{{ git_installer_filename }}'
+      dest: '{{ download_directory }}\{{ git_installer_filename}}'
+      force: no
+
+  - name: Get VS build tools
+    win_get_url: 
+      url: 'http://go.microsoft.com/fwlink/?LinkId=691126'
+      dest: '{{ download_directory }}\VisualCppBuildTools_Full.exe'
+      force: no
+
+  - name: Get Jenkins            
+    win_get_url: 
+      url: http://mirrors.jenkins-ci.org/windows/jenkins-2.2.zip
+      dest: '{{ download_directory }}\jenkins-2.2.zip'
+      force: no
+
+  - name: Unzip Jenkins
+    win_unzip: 
+      src: '{{ download_directory }}\jenkins-2.2.zip'
+      dest: '{{ download_directory }}'
+      creates: '{{ download_directory }}\jenkins.msi'
+
+  - name: Install Jenkins
+    win_msi:
+      path: '{{ download_directory }}\jenkins.msi'
+      wait: true
+
+  - name: Install cmake
+    win_msi:
+      path: '{{ download_directory }}\{{ cmake_installer_filename }}'
+      wait: true
+      creates: 'C:\Program Files (x86)\CMake\bin\cmake.exe'
+
+  #  - name: Install git
+  #    raw: '{{download_directory }}\{{ git_installer_filename }} /VERYQUIET /SUPPRESSMSGBOXES'
+
+  - name: Check if VCPP build tools are installed
+    win_stat: 
+      path: 'C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat'
+    register: file_info
+
+  - name: Install build tools
+    raw: '{{ download_directory }}\VisualCppBuildTools_Full.exe /Full /Quiet'
+    when: file_info.stat.exists == false
